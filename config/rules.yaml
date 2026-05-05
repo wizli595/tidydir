@@ -1,0 +1,31 @@
+# tidydir rules configuration
+# Customize how files are classified and organized.
+
+# Target folders for each category
+folders:
+  project: "projects"
+  document: "_docs"
+  media: "_media"
+  font: "_fonts"
+  archive: "_archives"
+
+# Additional project markers (beyond built-in ones)
+project_markers:
+  - file: "docker-compose.yml"
+    type: "docker"
+  - file: "Makefile"
+    type: "make"
+
+# Files/patterns to always ignore (never touch)
+ignore:
+  - "*.lnk"
+  - "desktop.ini"
+  - "My Music"
+  - "My Pictures"
+  - "My Videos"
+
+# Custom move rules (pattern → destination folder)
+custom_rules:
+  # Example: move all *.sketch files to _design/
+  # - pattern: "*.sketch"
+  #   dest: "_design"

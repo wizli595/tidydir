@@ -64,9 +64,8 @@ func Run(actions []action.Action, rootPath string) error {
 }
 
 // Undo reverses the last organize operation using the undo log.
-func Undo() error {
-	// Find the log file in current directory or home
-	logPath := logFile
+func Undo(rootPath string) error {
+	logPath := filepath.Join(rootPath, logFile)
 	data, err := os.ReadFile(logPath)
 	if err != nil {
 		return fmt.Errorf("no undo log found: %w", err)
@@ -100,7 +99,30 @@ func Undo() error {
 		}
 	}
 
-	// Remove the log file after successful undo
+	// Clean up empty directories created by organize
+	cleanEmptyDirs(rootPath)
+
+	// Remove the log file and trash dir after successful undo
+	os.RemoveAll(filepath.Join(rootPath, ".tidydir_trash"))
 	os.Remove(logPath)
 	return nil
+}
+
+func cleanEmptyDirs(root string) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		path := filepath.Join(root, e.Name())
+		cleanEmptyDirs(path)
+		// Remove if now empty
+		sub, _ := os.ReadDir(path)
+		if len(sub) == 0 {
+			os.Remove(path)
+		}
+	}
 }

@@ -14,8 +14,13 @@ import (
 
 var scanCmd = &cobra.Command{
 	Use:   "scan [path]",
-	Short: "Scan a directory and show the organization plan (dry-run)",
-	Long:  "Scans the target directory, classifies all entries, and displays the proposed actions without making any changes.",
+	Short: "Preview the organization plan without making changes",
+	Long: `Scans the target directory, classifies all entries, and displays
+the proposed actions. No files are moved or deleted.
+
+Examples:
+  tidydir scan ~/Documents
+  tidydir scan ~/Downloads --depth 2`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		path := args[0]
@@ -32,7 +37,7 @@ var scanCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("Found %d entries in %s\n\n", len(entries), path)
+		fmt.Printf("  Scanned %d entries in %s\n", len(entries), path)
 
 		classifiers := classifier.DefaultClassifiers(cfg.ProjectMarkers)
 		classifications := classifier.RunAll(classifiers, entries)

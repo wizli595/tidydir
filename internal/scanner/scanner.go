@@ -5,42 +5,63 @@ import (
 	"path/filepath"
 )
 
-// Entry represents a file or directory in the scanned path.
 type Entry struct {
 	Name  string
 	Path  string
 	IsDir bool
 	Size  int64
-	Ext   string // lowercase, e.g. ".pdf"
+	Ext   string
 }
 
-// Scan reads the top-level contents of a directory (non-recursive).
-func Scan(root string) ([]Entry, error) {
-	dirEntries, err := os.ReadDir(root)
+type Options struct {
+	Ignore []string
+	Depth  int // 0 = top-level only, >0 = recurse N levels
+}
+
+func Scan(root string, opts Options) ([]Entry, error) {
+	var entries []Entry
+	return entries, scan(root, opts, 0, &entries)
+}
+
+func scan(dir string, opts Options, level int, entries *[]Entry) error {
+	dirEntries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var entries []Entry
 	for _, de := range dirEntries {
+		name := de.Name()
+		if ignored(name, opts.Ignore) {
+			continue
+		}
+
 		info, err := de.Info()
 		if err != nil {
 			continue
 		}
 
-		name := de.Name()
-		if name == "desktop.ini" || name == "Thumbs.db" {
-			continue
-		}
-
-		entries = append(entries, Entry{
+		entry := Entry{
 			Name:  name,
-			Path:  filepath.Join(root, name),
+			Path:  filepath.Join(dir, name),
 			IsDir: de.IsDir(),
 			Size:  info.Size(),
 			Ext:   filepath.Ext(name),
-		})
+		}
+		*entries = append(*entries, entry)
+
+		if de.IsDir() && opts.Depth > 0 && level < opts.Depth {
+			scan(entry.Path, opts, level+1, entries)
+		}
 	}
 
-	return entries, nil
+	return nil
+}
+
+func ignored(name string, patterns []string) bool {
+	for _, p := range patterns {
+		if matched, _ := filepath.Match(p, name); matched {
+			return true
+		}
+	}
+	return false
 }

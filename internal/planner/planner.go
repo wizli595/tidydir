@@ -5,31 +5,29 @@ import (
 
 	"github.com/wizli595/tidydir/internal/action"
 	"github.com/wizli595/tidydir/internal/classifier"
+	"github.com/wizli595/tidydir/internal/config"
 )
 
-// categoryFolders maps categories to their target subdirectory.
-var categoryFolders = map[classifier.Category]string{
-	classifier.CatProject:  "projects",
-	classifier.CatDocument: "_docs",
-	classifier.CatMedia:    "_media",
-	classifier.CatFont:     "_fonts",
-	classifier.CatArchive:  "_archives",
-}
-
-// Plan generates actions from classifications.
-func Plan(classifications []classifier.Classification, rootPath string) []action.Action {
+func Plan(classifications []classifier.Classification, rootPath string, folders map[string]string, customRules []config.CustomRule) []action.Action {
 	var actions []action.Action
 
-	for _, c := range classifications {
-		switch c.Category {
-		case classifier.CatJunk:
-			actions = append(actions, action.Action{
-				Type:   action.ActionDelete,
-				Source: c.Entry.Path,
-				Reason: c.Reason,
-			})
+	// Apply custom rules first
+	customized := applyCustomRules(classifications, rootPath, customRules)
+	actions = append(actions, customized...)
 
-		case classifier.CatDuplicate:
+	// Track which entries were handled by custom rules
+	handled := make(map[string]bool)
+	for _, a := range customized {
+		handled[a.Source] = true
+	}
+
+	for _, c := range classifications {
+		if handled[c.Entry.Path] {
+			continue
+		}
+
+		switch c.Category {
+		case classifier.CatJunk, classifier.CatDuplicate:
 			actions = append(actions, action.Action{
 				Type:   action.ActionDelete,
 				Source: c.Entry.Path,
@@ -37,30 +35,54 @@ func Plan(classifications []classifier.Classification, rootPath string) []action
 			})
 
 		case classifier.CatProject:
-			dest := filepath.Join(rootPath, "projects", c.SubType, c.Entry.Name)
+			folder := folders["project"]
+			dest := filepath.Join(rootPath, folder, c.SubType, c.Entry.Name)
 			if dest != c.Entry.Path {
 				actions = append(actions, action.Action{
 					Type:   action.ActionMove,
 					Source: c.Entry.Path,
 					Dest:   dest,
-					Reason: c.Reason + " → projects/" + c.SubType + "/",
+					Reason: c.Reason + " -> " + folder + "/" + c.SubType + "/",
 				})
 			}
 
 		case classifier.CatDocument, classifier.CatMedia, classifier.CatFont, classifier.CatArchive:
-			folder := categoryFolders[c.Category]
+			folder := folders[string(c.Category)]
+			if folder == "" {
+				continue
+			}
 			dest := filepath.Join(rootPath, folder, c.Entry.Name)
 			if dest != c.Entry.Path {
 				actions = append(actions, action.Action{
 					Type:   action.ActionMove,
 					Source: c.Entry.Path,
 					Dest:   dest,
-					Reason: c.Reason + " → " + folder + "/",
+					Reason: c.Reason + " -> " + folder + "/",
 				})
 			}
+		}
+	}
 
-		case classifier.CatUnknown:
-			// Leave unknown files alone
+	return actions
+}
+
+func applyCustomRules(classifications []classifier.Classification, rootPath string, rules []config.CustomRule) []action.Action {
+	var actions []action.Action
+
+	for _, c := range classifications {
+		for _, rule := range rules {
+			if matched, _ := filepath.Match(rule.Pattern, c.Entry.Name); matched {
+				dest := filepath.Join(rootPath, rule.Dest, c.Entry.Name)
+				if dest != c.Entry.Path {
+					actions = append(actions, action.Action{
+						Type:   action.ActionMove,
+						Source: c.Entry.Path,
+						Dest:   dest,
+						Reason: "custom rule: " + rule.Pattern + " -> " + rule.Dest + "/",
+					})
+				}
+				break
+			}
 		}
 	}
 

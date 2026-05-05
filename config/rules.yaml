@@ -1,5 +1,5 @@
-# tidydir rules configuration
-# Customize how files are classified and organized.
+# tidydir configuration
+# Place as tidydir.yaml or .tidydir.yaml in the target directory to override defaults.
 
 # Target folders for each category
 folders:
@@ -15,17 +15,20 @@ project_markers:
     type: "docker"
   - file: "Makefile"
     type: "make"
+  - file: "manage.py"
+    type: "django"
 
-# Files/patterns to always ignore (never touch)
+# Files/patterns to ignore (never touch)
 ignore:
-  - "*.lnk"
   - "desktop.ini"
+  - "*.lnk"
   - "My Music"
   - "My Pictures"
   - "My Videos"
 
-# Custom move rules (pattern → destination folder)
+# Custom move rules (pattern -> destination folder)
 custom_rules:
-  # Example: move all *.sketch files to _design/
   # - pattern: "*.sketch"
+  #   dest: "_design"
+  # - pattern: "*.fig"
   #   dest: "_design"

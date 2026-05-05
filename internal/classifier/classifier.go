@@ -1,6 +1,9 @@
 package classifier
 
-import "github.com/wizli595/tidydir/internal/scanner"
+import (
+	"github.com/wizli595/tidydir/internal/config"
+	"github.com/wizli595/tidydir/internal/scanner"
+)
 
 // Category represents what kind of thing an entry is.
 type Category string
@@ -56,11 +59,11 @@ func RunAll(classifiers []Classifier, entries []scanner.Entry) []Classification 
 }
 
 // DefaultClassifiers returns the standard set of classifiers in priority order.
-func DefaultClassifiers() []Classifier {
+func DefaultClassifiers(extraMarkers []config.ProjectMarker) []Classifier {
 	return []Classifier{
 		&JunkClassifier{},
 		&DuplicateClassifier{},
-		&ProjectClassifier{},
+		&ProjectClassifier{ExtraMarkers: extraMarkers},
 		&FileTypeClassifier{},
 	}
 }

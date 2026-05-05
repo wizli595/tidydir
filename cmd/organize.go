@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wizli595/tidydir/internal/classifier"
+	"github.com/wizli595/tidydir/internal/config"
 	"github.com/wizli595/tidydir/internal/executor"
 	"github.com/wizli595/tidydir/internal/planner"
 	"github.com/wizli595/tidydir/internal/scanner"
@@ -15,12 +16,19 @@ import (
 var organizeCmd = &cobra.Command{
 	Use:   "organize [path]",
 	Short: "Scan, plan, confirm, and organize a directory",
+	Long:  "Scans the target directory, classifies entries, shows a plan, asks for confirmation, then executes the approved actions.",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		path := args[0]
+		depth, _ := cmd.Flags().GetInt("depth")
+		dryRun, _ := cmd.Flags().GetBool("dry-run")
 
-		// Scan
-		entries, err := scanner.Scan(path)
+		cfg := config.Load(path)
+
+		entries, err := scanner.Scan(path, scanner.Options{
+			Ignore: cfg.Ignore,
+			Depth:  depth,
+		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error scanning: %v\n", err)
 			os.Exit(1)
@@ -28,28 +36,27 @@ var organizeCmd = &cobra.Command{
 
 		fmt.Printf("Found %d entries in %s\n\n", len(entries), path)
 
-		// Classify
-		classifiers := classifier.DefaultClassifiers()
+		classifiers := classifier.DefaultClassifiers(cfg.ProjectMarkers)
 		classifications := classifier.RunAll(classifiers, entries)
-
-		// Plan
-		actions := planner.Plan(classifications, path)
+		actions := planner.Plan(classifications, path, cfg.Folders, cfg.CustomRules)
 
 		if len(actions) == 0 {
 			fmt.Println("Everything looks tidy! Nothing to do.")
 			return
 		}
 
-		// Show & confirm
 		ui.ShowPlan(actions)
-		approved := ui.Confirm(actions)
 
+		if dryRun {
+			return
+		}
+
+		approved := ui.Confirm(actions)
 		if len(approved) == 0 {
 			fmt.Println("No actions approved. Exiting.")
 			return
 		}
 
-		// Execute
 		if err := executor.Run(approved, path); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
@@ -60,5 +67,7 @@ var organizeCmd = &cobra.Command{
 }
 
 func init() {
+	organizeCmd.Flags().Int("depth", 0, "Recursion depth (0 = top-level only)")
+	organizeCmd.Flags().Bool("dry-run", false, "Show plan without executing")
 	rootCmd.AddCommand(organizeCmd)
 }

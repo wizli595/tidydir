@@ -9,10 +9,13 @@ import (
 )
 
 var undoCmd = &cobra.Command{
-	Use:   "undo",
+	Use:   "undo [path]",
 	Short: "Undo the last organize operation",
+	Long:  "Reverses all actions from the last organize run. Reads the undo log from the target directory.",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := executor.Undo(); err != nil {
+		path := args[0]
+		if err := executor.Undo(path); err != nil {
 			fmt.Fprintf(os.Stderr, "Error undoing: %v\n", err)
 			os.Exit(1)
 		}

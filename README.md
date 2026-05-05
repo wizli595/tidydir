@@ -1,5 +1,10 @@
 # tidydir
 
+[![Go](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20|%20macOS%20|%20Linux-blue)]()
+[![GitHub release](https://img.shields.io/github/v/release/wizli595/tidydir?include_prereleases)](https://github.com/wizli595/tidydir/releases)
+
 A CLI tool that scans messy directories, classifies files and projects by type, proposes an organization plan, and executes only what you approve.
 
 ## Features
@@ -123,4 +128,4 @@ tidydir/
 
 ## License
 
-MIT
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

@@ -9,8 +9,19 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "tidydir",
-	Short: "Smart directory organizer — scan, plan, confirm, execute",
-	Long:  "tidydir scans messy directories, classifies files/projects, shows you a plan, and organizes on your confirmation.",
+	Short: "Smart directory organizer",
+	Long: `tidydir - Smart Directory Organizer
+
+  Scans messy directories, classifies files and projects by type,
+  shows you a plan, and organizes only what you approve.
+
+  Workflow:
+    1. tidydir scan <path>        Preview the organization plan
+    2. tidydir organize <path>    Execute with confirmation
+    3. tidydir undo <path>        Revert the last run
+
+  Configuration:
+    Place tidydir.yaml in the target directory to customize rules.`,
 }
 
 func Execute() {

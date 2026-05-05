@@ -15,8 +15,17 @@ import (
 
 var organizeCmd = &cobra.Command{
 	Use:   "organize [path]",
-	Short: "Scan, plan, confirm, and organize a directory",
-	Long:  "Scans the target directory, classifies entries, shows a plan, asks for confirmation, then executes the approved actions.",
+	Short: "Organize a directory with confirmation",
+	Long: `Scans the target directory, classifies entries, shows a plan,
+asks for your confirmation, then executes the approved actions.
+
+Deletes are non-destructive (moved to .tidydir_trash/).
+An undo log is saved after execution.
+
+Examples:
+  tidydir organize ~/Documents
+  tidydir organize ~/Downloads --dry-run
+  tidydir organize ~/Projects --depth 1`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		path := args[0]
@@ -34,7 +43,7 @@ var organizeCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("Found %d entries in %s\n\n", len(entries), path)
+		fmt.Printf("  Scanned %d entries in %s\n", len(entries), path)
 
 		classifiers := classifier.DefaultClassifiers(cfg.ProjectMarkers)
 		classifications := classifier.RunAll(classifiers, entries)

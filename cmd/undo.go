@@ -10,8 +10,13 @@ import (
 
 var undoCmd = &cobra.Command{
 	Use:   "undo [path]",
-	Short: "Undo the last organize operation",
-	Long:  "Reverses all actions from the last organize run. Reads the undo log from the target directory.",
+	Short: "Revert the last organize operation",
+	Long: `Reverses all actions from the last organize run.
+Restores moved files, recovers trashed items, and cleans up
+empty directories created during organize.
+
+Examples:
+  tidydir undo ~/Documents`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		path := args[0]

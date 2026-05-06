@@ -1,31 +1,55 @@
 package ui
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"github.com/wizli595/tidydir/internal/action"
 	"github.com/wizli595/tidydir/internal/insights"
 )
 
 var (
-	titleStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
-	moveStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
-	deleteStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9"))
-	renameStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
-	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	pathStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	countStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13"))
-	promptStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
-	warnStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
-	dangerStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9"))
-	infoStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	suggestStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	titleStyle   lipgloss.Style
+	moveStyle    lipgloss.Style
+	deleteStyle  lipgloss.Style
+	renameStyle  lipgloss.Style
+	dimStyle     lipgloss.Style
+	pathStyle    lipgloss.Style
+	countStyle   lipgloss.Style
+	promptStyle  lipgloss.Style
+	warnStyle    lipgloss.Style
+	dangerStyle  lipgloss.Style
+	infoStyle    lipgloss.Style
+	suggestStyle lipgloss.Style
 )
+
+func init() {
+	dark := termenv.HasDarkBackground()
+
+	if dark {
+		titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
+		dimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+		infoStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	} else {
+		titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0"))
+		dimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
+		infoStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
+	}
+
+	// These work on both dark and light
+	moveStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
+	deleteStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9"))
+	renameStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
+	pathStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	countStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13"))
+	promptStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	warnStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
+	dangerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9"))
+	suggestStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+}
 
 func ShowInsights(items []insights.Insight) {
 	if len(items) == 0 {
@@ -181,65 +205,9 @@ func shortenDest(dest string) string {
 	return dest
 }
 
+// Confirm launches the interactive TUI for approving actions.
 func Confirm(actions []action.Action) []action.Action {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Printf("  %s\n", promptStyle.Render("Approve?"))
-	fmt.Printf("    %s approve all\n", dimStyle.Render("[a]"))
-	fmt.Printf("    %s reject all\n", dimStyle.Render("[n]"))
-	fmt.Printf("    %s pick one by one\n\n", dimStyle.Render("[i]"))
-	fmt.Print("  > ")
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(strings.ToLower(input))
-
-	switch input {
-	case "a", "all", "y", "yes":
-		return actions
-	case "n", "none", "no":
-		return nil
-	case "i", "interactive":
-		return confirmInteractive(actions, reader)
-	default:
-		fmt.Println("  Aborted.")
-		return nil
-	}
-}
-
-func confirmInteractive(actions []action.Action, reader *bufio.Reader) []action.Action {
-	var approved []action.Action
-	total := len(actions)
-
-	fmt.Println()
-	for i, a := range actions {
-		progress := dimStyle.Render(fmt.Sprintf("[%d/%d]", i+1, total))
-		name := filepath.Base(a.Source)
-
-		switch a.Type {
-		case action.ActionMove:
-			dest := shortenDest(a.Dest)
-			fmt.Printf("  %s %s %s %s %s\n", progress, moveStyle.Render("MOVE"), pathStyle.Render(name), dimStyle.Render("->"), dest)
-		case action.ActionDelete:
-			fmt.Printf("  %s %s %s  %s\n", progress, deleteStyle.Render("DEL "), pathStyle.Render(name), dimStyle.Render(a.Reason))
-		case action.ActionRename:
-			dest := filepath.Base(a.Dest)
-			fmt.Printf("  %s %s %s %s %s\n", progress, renameStyle.Render("REN "), pathStyle.Render(name), dimStyle.Render("->"), dest)
-		}
-
-		fmt.Print("         [y]es  [n]o  [q]uit > ")
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(strings.ToLower(input))
-
-		switch input {
-		case "y", "yes":
-			approved = append(approved, a)
-		case "q", "quit":
-			fmt.Printf("\n  Stopped. %d approved so far.\n", len(approved))
-			return approved
-		}
-	}
-
-	fmt.Printf("\n  %s approved out of %d.\n", countStyle.Render(fmt.Sprintf("%d", len(approved))), total)
-	return approved
+	return ConfirmTUI(actions)
 }
 
 func countActions(actions []action.Action) (moves, deletes, renames int) {

@@ -18,7 +18,7 @@ func TestRun_MoveAction(t *testing.T) {
 		{Type: action.ActionMove, Source: src, Dest: dest},
 	}
 
-	if err := Run(actions, root); err != nil {
+	if _, err := Run(actions, root); err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
 
@@ -39,7 +39,7 @@ func TestRun_DeleteAction(t *testing.T) {
 		{Type: action.ActionDelete, Source: src},
 	}
 
-	if err := Run(actions, root); err != nil {
+	if _, err := Run(actions, root); err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
 
@@ -47,7 +47,6 @@ func TestRun_DeleteAction(t *testing.T) {
 		t.Error("source should not exist after delete")
 	}
 
-	// Should be in trash
 	trashEntries, _ := filepath.Glob(filepath.Join(root, ".tidydir_trash", "*", "junk.tmp"))
 	if len(trashEntries) == 0 {
 		t.Error("deleted file should be in .tidydir_trash")
@@ -64,12 +63,47 @@ func TestRun_RenameAction(t *testing.T) {
 		{Type: action.ActionRename, Source: src, Dest: dest},
 	}
 
-	if err := Run(actions, root); err != nil {
+	if _, err := Run(actions, root); err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
 
 	if _, err := os.Stat(dest); err != nil {
 		t.Error("renamed file should exist")
+	}
+}
+
+func TestRun_Stats(t *testing.T) {
+	root := t.TempDir()
+
+	// Create files for each action type
+	moveFile := filepath.Join(root, "move.txt")
+	os.WriteFile(moveFile, []byte("move"), 0644)
+	delFile := filepath.Join(root, "del.tmp")
+	os.WriteFile(delFile, []byte("delete-me"), 0644)
+	renFile := filepath.Join(root, "Old Name.txt")
+	os.WriteFile(renFile, []byte("rename"), 0644)
+
+	actions := []action.Action{
+		{Type: action.ActionMove, Source: moveFile, Dest: filepath.Join(root, "sub", "move.txt")},
+		{Type: action.ActionDelete, Source: delFile},
+		{Type: action.ActionRename, Source: renFile, Dest: filepath.Join(root, "old-name.txt")},
+	}
+
+	stats, err := Run(actions, root)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if stats.Moved != 1 {
+		t.Errorf("moved = %d, want 1", stats.Moved)
+	}
+	if stats.Deleted != 1 {
+		t.Errorf("deleted = %d, want 1", stats.Deleted)
+	}
+	if stats.Renamed != 1 {
+		t.Errorf("renamed = %d, want 1", stats.Renamed)
+	}
+	if stats.Freed != 9 { // len("delete-me")
+		t.Errorf("freed = %d, want 9", stats.Freed)
 	}
 }
 

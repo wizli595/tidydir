@@ -20,47 +20,75 @@ type LogEntry struct {
 
 const logFile = ".tidydir_undo.json"
 
+// Stats holds execution counts for the summary report.
+type Stats struct {
+	Moved   int
+	Deleted int
+	Renamed int
+	Freed   int64
+}
+
 // Run executes all approved actions and writes an undo log.
-func Run(actions []action.Action, rootPath string) error {
+func Run(actions []action.Action, rootPath string) (Stats, error) {
 	var log []LogEntry
+	var stats Stats
 
 	for _, a := range actions {
 		switch a.Type {
 		case action.ActionMove:
-			// Ensure destination directory exists
 			destDir := filepath.Dir(a.Dest)
 			if err := os.MkdirAll(destDir, 0755); err != nil {
-				return fmt.Errorf("creating dir %s: %w", destDir, err)
+				return stats, fmt.Errorf("creating dir %s: %w", destDir, err)
 			}
 			if err := os.Rename(a.Source, a.Dest); err != nil {
-				return fmt.Errorf("moving %s → %s: %w", a.Source, a.Dest, err)
+				return stats, fmt.Errorf("moving %s → %s: %w", a.Source, a.Dest, err)
 			}
 			log = append(log, LogEntry{Type: a.Type, Source: a.Source, Dest: a.Dest})
+			stats.Moved++
 
 		case action.ActionDelete:
-			// Move to trash (backup dir) instead of permanent delete
+			// Calculate freed space before trashing
+			if info, err := os.Stat(a.Source); err == nil {
+				if info.IsDir() {
+					stats.Freed += calcDirSize(a.Source)
+				} else {
+					stats.Freed += info.Size()
+				}
+			}
 			trashDir := filepath.Join(rootPath, ".tidydir_trash", time.Now().Format("2006-01-02"))
 			if err := os.MkdirAll(trashDir, 0755); err != nil {
-				return fmt.Errorf("creating trash dir: %w", err)
+				return stats, fmt.Errorf("creating trash dir: %w", err)
 			}
 			backupPath := filepath.Join(trashDir, filepath.Base(a.Source))
 			if err := os.Rename(a.Source, backupPath); err != nil {
-				return fmt.Errorf("trashing %s: %w", a.Source, err)
+				return stats, fmt.Errorf("trashing %s: %w", a.Source, err)
 			}
 			log = append(log, LogEntry{Type: a.Type, Source: a.Source, BackupAt: backupPath})
+			stats.Deleted++
 
 		case action.ActionRename:
 			if err := os.Rename(a.Source, a.Dest); err != nil {
-				return fmt.Errorf("renaming %s → %s: %w", a.Source, a.Dest, err)
+				return stats, fmt.Errorf("renaming %s → %s: %w", a.Source, a.Dest, err)
 			}
 			log = append(log, LogEntry{Type: a.Type, Source: a.Source, Dest: a.Dest})
+			stats.Renamed++
 		}
 	}
 
-	// Write undo log
 	logPath := filepath.Join(rootPath, logFile)
 	data, _ := json.MarshalIndent(log, "", "  ")
-	return os.WriteFile(logPath, data, 0644)
+	return stats, os.WriteFile(logPath, data, 0644)
+}
+
+func calcDirSize(path string) int64 {
+	var size int64
+	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+	return size
 }
 
 // Undo reverses the last organize operation using the undo log.

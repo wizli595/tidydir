@@ -77,12 +77,13 @@ Examples:
 			return
 		}
 
-		if err := executor.Run(approved, path); err != nil {
+		stats, err := executor.Run(approved, path)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("\nDone! %d actions executed. Undo log saved.\n", len(approved))
+		ui.ShowSummary(stats.Moved, stats.Deleted, stats.Renamed, stats.Freed)
 	},
 }
 

@@ -6,6 +6,8 @@ import (
 	"github.com/wizli595/tidydir/internal/action"
 	"github.com/wizli595/tidydir/internal/classifier"
 	"github.com/wizli595/tidydir/internal/config"
+	"github.com/wizli595/tidydir/internal/insights"
+	"github.com/wizli595/tidydir/internal/scanner"
 )
 
 func Plan(classifications []classifier.Classification, rootPath string, folders map[string]string, customRules []config.CustomRule) []action.Action {
@@ -64,6 +66,36 @@ func Plan(classifications []classifier.Classification, rootPath string, folders 
 	}
 
 	return actions
+}
+
+// PlanRenames generates rename actions for files with naming issues.
+// Skips entries already handled by other actions and directories.
+func PlanRenames(entries []scanner.Entry, rootPath string, existingActions []action.Action) []action.Action {
+	handled := make(map[string]bool)
+	for _, a := range existingActions {
+		handled[a.Source] = true
+	}
+
+	var renames []action.Action
+	for _, e := range entries {
+		if e.IsDir || handled[e.Path] {
+			continue
+		}
+		// Only rename top-level files
+		if filepath.Dir(e.Path) != rootPath {
+			continue
+		}
+		normalized := insights.NormalizeName(e.Name)
+		if normalized != e.Name {
+			renames = append(renames, action.Action{
+				Type:   action.ActionRename,
+				Source: e.Path,
+				Dest:   filepath.Join(rootPath, normalized),
+				Reason: "normalize name",
+			})
+		}
+	}
+	return renames
 }
 
 func applyCustomRules(classifications []classifier.Classification, rootPath string, rules []config.CustomRule) []action.Action {

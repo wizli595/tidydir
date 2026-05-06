@@ -11,6 +11,16 @@
 
 A CLI tool that scans messy directories, classifies files and projects by type, proposes an organization plan, and executes only what you approve.
 
+## Screenshots
+
+<p align="center">
+  <img src="screens/image.png" alt="tidydir help" width="100%">
+</p>
+
+<p align="center">
+  <img src="screens/screen.png" alt="tidydir scan" width="100%">
+</p>
+
 ## Features
 
 - **Smart classification** — detects dev projects (Go, Node, Java, Flutter, .NET, Python, Rust, Docker, Django), documents, media, fonts, archives, duplicates, and junk files

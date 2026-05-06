@@ -9,18 +9,107 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/wizli595/tidydir/internal/action"
+	"github.com/wizli595/tidydir/internal/insights"
 )
 
 var (
-	titleStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
-	moveStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
-	deleteStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9"))
-	renameStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
-	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	pathStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	countStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13"))
-	promptStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	titleStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
+	moveStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
+	deleteStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9"))
+	renameStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
+	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	pathStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	countStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13"))
+	promptStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	warnStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
+	dangerStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9"))
+	infoStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	suggestStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
 )
+
+func ShowInsights(items []insights.Insight) {
+	if len(items) == 0 {
+		return
+	}
+
+	fmt.Println()
+	fmt.Println(titleStyle.Render("  INSIGHTS"))
+	fmt.Println(dimStyle.Render("  " + strings.Repeat("-", 56)))
+
+	large := filterInsights(items, insights.InsightLargeFile)
+	dirty := filterInsights(items, insights.InsightDirtyGit)
+	old := filterInsights(items, insights.InsightOldProject)
+	heavy := filterInsights(items, insights.InsightOrphanedDeps)
+	naming := filterInsights(items, insights.InsightNaming)
+
+	if len(large) > 0 {
+		fmt.Println(warnStyle.Render("  LARGE FILES"))
+		for i, ins := range large {
+			fmt.Printf("    %s %s  %s\n",
+				dimStyle.Render(fmt.Sprintf("%2d.", i+1)),
+				pathStyle.Render(ins.Name),
+				warnStyle.Render(ins.Message))
+		}
+		fmt.Println()
+	}
+
+	if len(dirty) > 0 {
+		fmt.Println(dangerStyle.Render("  DIRTY GIT REPOS"))
+		for i, ins := range dirty {
+			fmt.Printf("    %s %s  %s\n",
+				dimStyle.Render(fmt.Sprintf("%2d.", i+1)),
+				pathStyle.Render(ins.Name+"/"),
+				dangerStyle.Render(ins.Message))
+		}
+		fmt.Println()
+	}
+
+	if len(old) > 0 {
+		fmt.Println(infoStyle.Render("  OLD PROJECTS"))
+		for i, ins := range old {
+			fmt.Printf("    %s %s  %s\n",
+				dimStyle.Render(fmt.Sprintf("%2d.", i+1)),
+				pathStyle.Render(ins.Name+"/"),
+				infoStyle.Render(ins.Message))
+		}
+		fmt.Println()
+	}
+
+	if len(heavy) > 0 {
+		fmt.Println(warnStyle.Render("  HEAVY DIRECTORIES"))
+		for i, ins := range heavy {
+			fmt.Printf("    %s %s  %s\n",
+				dimStyle.Render(fmt.Sprintf("%2d.", i+1)),
+				pathStyle.Render(ins.Name),
+				warnStyle.Render(ins.Message))
+		}
+		fmt.Println()
+	}
+
+	if len(naming) > 0 {
+		fmt.Println(suggestStyle.Render("  NAMING"))
+		for i, ins := range naming {
+			fmt.Printf("    %s %s %s %s\n",
+				dimStyle.Render(fmt.Sprintf("%2d.", i+1)),
+				pathStyle.Render(ins.Name),
+				dimStyle.Render("->"),
+				suggestStyle.Render(ins.Message))
+		}
+		fmt.Println()
+	}
+
+	fmt.Println(dimStyle.Render("  " + strings.Repeat("-", 56)))
+}
+
+func filterInsights(items []insights.Insight, t insights.InsightType) []insights.Insight {
+	var out []insights.Insight
+	for _, ins := range items {
+		if ins.Type == t {
+			out = append(out, ins)
+		}
+	}
+	return out
+}
 
 func ShowPlan(actions []action.Action) {
 	moves, deletes, renames := countActions(actions)

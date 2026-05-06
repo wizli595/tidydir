@@ -12,6 +12,8 @@ type Config struct {
 	ProjectMarkers []ProjectMarker   `yaml:"project_markers"`
 	Ignore         []string          `yaml:"ignore"`
 	CustomRules    []CustomRule      `yaml:"custom_rules"`
+	LargeFileMB    int               `yaml:"large_file_mb"`
+	OldProjectDays int               `yaml:"old_project_days"`
 }
 
 type ProjectMarker struct {
@@ -33,7 +35,9 @@ func Load(targetDir string) *Config {
 			"font":     "_fonts",
 			"archive":  "_archives",
 		},
-		Ignore: []string{"desktop.ini", "*.lnk", "My Music", "My Pictures", "My Videos"},
+		Ignore:         []string{"desktop.ini", "*.lnk", "My Music", "My Pictures", "My Videos"},
+		LargeFileMB:    100,
+		OldProjectDays: 180,
 	}
 
 	path := findFile(targetDir)

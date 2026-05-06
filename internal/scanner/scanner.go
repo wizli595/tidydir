@@ -3,14 +3,16 @@ package scanner
 import (
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type Entry struct {
-	Name  string
-	Path  string
-	IsDir bool
-	Size  int64
-	Ext   string
+	Name    string
+	Path    string
+	IsDir   bool
+	Size    int64
+	Ext     string
+	ModTime time.Time
 }
 
 type Options struct {
@@ -41,11 +43,12 @@ func scan(dir string, opts Options, level int, entries *[]Entry) error {
 		}
 
 		entry := Entry{
-			Name:  name,
-			Path:  filepath.Join(dir, name),
-			IsDir: de.IsDir(),
-			Size:  info.Size(),
-			Ext:   filepath.Ext(name),
+			Name:    name,
+			Path:    filepath.Join(dir, name),
+			IsDir:   de.IsDir(),
+			Size:    info.Size(),
+			Ext:     filepath.Ext(name),
+			ModTime: info.ModTime(),
 		}
 		*entries = append(*entries, entry)
 

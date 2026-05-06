@@ -8,6 +8,7 @@ import (
 	"github.com/wizli595/tidydir/internal/classifier"
 	"github.com/wizli595/tidydir/internal/config"
 	"github.com/wizli595/tidydir/internal/executor"
+	"github.com/wizli595/tidydir/internal/insights"
 	"github.com/wizli595/tidydir/internal/planner"
 	"github.com/wizli595/tidydir/internal/scanner"
 	"github.com/wizli595/tidydir/internal/ui"
@@ -47,7 +48,17 @@ Examples:
 
 		classifiers := classifier.DefaultClassifiers(cfg.ProjectMarkers)
 		classifications := classifier.RunAll(classifiers, entries)
+
+		// Run insights analysis
+		ins := insights.Analyze(entries, classifications, insights.Options{
+			LargeFileMB:    cfg.LargeFileMB,
+			OldProjectDays: cfg.OldProjectDays,
+		})
+		ui.ShowInsights(ins)
+
 		actions := planner.Plan(classifications, path, cfg.Folders, cfg.CustomRules)
+		renames := planner.PlanRenames(entries, path, actions)
+		actions = append(actions, renames...)
 
 		if len(actions) == 0 {
 			fmt.Println("Everything looks tidy! Nothing to do.")

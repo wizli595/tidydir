@@ -24,11 +24,14 @@ A CLI tool that scans messy directories, classifies files and projects by type, 
 ## Features
 
 - **Smart classification** — detects dev projects (Go, Node, Java, Flutter, .NET, Python, Rust, Docker, Django), documents, media, fonts, archives, duplicates, and junk files
+- **Insights engine** — flags large files, old projects, dirty git repos, heavy dependency dirs (node_modules, vendor), and naming issues
+- **Naming normalization** — suggests kebab-case renames for files with spaces, mixed case, or underscores
 - **Non-destructive** — deletes go to a trash folder, every action is logged for undo
 - **Interactive confirmation** — approve all, none, or pick individually
-- **Configurable** — YAML-based rules, custom move patterns, ignore lists, configurable folder names
+- **Configurable** — YAML-based rules, custom move patterns, ignore lists, configurable folder names and thresholds
 - **Recursive scanning** — optional depth control with `--depth` flag
 - **Dry-run mode** — preview changes without executing
+- **Tested** — 48 unit tests across all internal packages
 
 ## Install
 
@@ -156,6 +159,9 @@ ignore:
 custom_rules:
   - pattern: "*.sketch"
     dest: "_design"
+
+large_file_mb: 100       # flag files larger than this (default: 100)
+old_project_days: 180    # flag projects not modified in this many days (default: 180)
 ```
 
 ## Architecture
@@ -168,9 +174,10 @@ tidydir/
     classifier/     # Strategy pattern: each rule implements the Classifier interface
     config/         # YAML config loader with defaults
     planner/        # Converts classifications to actions, applies custom rules
+    insights/       # Intelligence: large files, old projects, git status, naming
     action/         # Action type definitions
     executor/       # Runs actions, writes undo log, handles rollback
-    ui/             # Terminal output and confirmation prompts
+    ui/             # Terminal output, confirmation prompts, insights display
   config/           # Default YAML rule definitions
 ```
 

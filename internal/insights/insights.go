@@ -104,27 +104,28 @@ func findDirtyGitRepos(classifications []classifier.Classification) []Insight {
 		if c.Category != classifier.CatProject {
 			continue
 		}
-		gitDir := filepath.Join(c.Entry.Path, ".git")
-		if _, err := os.Stat(gitDir); err != nil {
-			continue
+		if ins := checkGitStatus(c.Entry); ins != nil {
+			out = append(out, *ins)
 		}
-		raw, err := exec.Command("git", "-C", c.Entry.Path, "status", "--porcelain").Output()
-		if err != nil {
-			continue
-		}
-		lines := strings.TrimSpace(string(raw))
-		if lines == "" {
-			continue
-		}
-		n := len(strings.Split(lines, "\n"))
-		out = append(out, Insight{
-			Type:    InsightDirtyGit,
-			Path:    c.Entry.Path,
-			Name:    c.Entry.Name,
-			Message: fmt.Sprintf("%d uncommitted changes", n),
-		})
 	}
 	return out
+}
+
+func checkGitStatus(entry scanner.Entry) *Insight {
+	if _, err := os.Stat(filepath.Join(entry.Path, ".git")); err != nil {
+		return nil
+	}
+	raw, err := exec.Command("git", "-C", entry.Path, "status", "--porcelain").Output()
+	if err != nil || strings.TrimSpace(string(raw)) == "" {
+		return nil
+	}
+	n := len(strings.Split(strings.TrimSpace(string(raw)), "\n"))
+	return &Insight{
+		Type:    InsightDirtyGit,
+		Path:    entry.Path,
+		Name:    entry.Name,
+		Message: fmt.Sprintf("%d uncommitted changes", n),
+	}
 }
 
 // --- Orphaned / heavy dependency dirs ---

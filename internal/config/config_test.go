@@ -97,3 +97,72 @@ project_markers:
 		t.Errorf("first marker type = %q, want docker", cfg.ProjectMarkers[0].Type)
 	}
 }
+
+func TestLoadWithProfile(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+folders:
+  project: "projects"
+profiles:
+  work:
+    folders:
+      project: "work-projects"
+    large_file_mb: 500
+  personal:
+    folders:
+      project: "hobby"
+    ignore:
+      - "*.bak"
+`
+	os.WriteFile(filepath.Join(dir, "tidydir.yaml"), []byte(yaml), 0644)
+
+	cfg := LoadWithProfile(dir, "work")
+	if cfg.Folders["project"] != "work-projects" {
+		t.Errorf("expected work-projects, got %q", cfg.Folders["project"])
+	}
+	if cfg.LargeFileMB != 500 {
+		t.Errorf("expected 500, got %d", cfg.LargeFileMB)
+	}
+
+	cfg2 := LoadWithProfile(dir, "personal")
+	if cfg2.Folders["project"] != "hobby" {
+		t.Errorf("expected hobby, got %q", cfg2.Folders["project"])
+	}
+	if len(cfg2.Ignore) != 1 || cfg2.Ignore[0] != "*.bak" {
+		t.Errorf("expected [*.bak], got %v", cfg2.Ignore)
+	}
+}
+
+func TestLoadWithProfile_Unknown(t *testing.T) {
+	dir := t.TempDir()
+	cfg := LoadWithProfile(dir, "nonexistent")
+	if cfg.Folders["project"] != "projects" {
+		t.Errorf("expected default, got %q", cfg.Folders["project"])
+	}
+}
+
+func TestLoad_CustomClassifiers(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+custom_classifiers:
+  - name: "data-files"
+    extensions: [".parquet", ".avro"]
+    category: "document"
+    subtype: "data"
+  - name: "logs"
+    patterns: ["*.log"]
+    category: "junk"
+`
+	os.WriteFile(filepath.Join(dir, "tidydir.yaml"), []byte(yaml), 0644)
+	cfg := Load(dir)
+
+	if len(cfg.CustomClassifiers) != 2 {
+		t.Fatalf("expected 2 custom classifiers, got %d", len(cfg.CustomClassifiers))
+	}
+	if cfg.CustomClassifiers[0].Name != "data-files" {
+		t.Errorf("expected 'data-files', got %q", cfg.CustomClassifiers[0].Name)
+	}
+	if len(cfg.CustomClassifiers[0].Extensions) != 2 {
+		t.Errorf("expected 2 extensions, got %d", len(cfg.CustomClassifiers[0].Extensions))
+	}
+}

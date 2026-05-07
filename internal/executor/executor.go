@@ -28,10 +28,19 @@ type Stats struct {
 	Freed   int64
 }
 
+// RunOptions configures execution behavior.
+type RunOptions struct {
+	SystemTrash bool // use OS trash instead of .tidydir_trash
+}
+
 // Run executes all approved actions and writes an undo log.
-func Run(actions []action.Action, rootPath string) (Stats, error) {
+func Run(actions []action.Action, rootPath string, opts ...RunOptions) (Stats, error) {
 	var log []LogEntry
 	var stats Stats
+	var opt RunOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
 
 	for _, a := range actions {
 		switch a.Type {
@@ -55,15 +64,23 @@ func Run(actions []action.Action, rootPath string) (Stats, error) {
 					stats.Freed += info.Size()
 				}
 			}
-			trashDir := filepath.Join(rootPath, ".tidydir_trash", time.Now().Format("2006-01-02"))
-			if err := os.MkdirAll(trashDir, 0755); err != nil {
-				return stats, fmt.Errorf("creating trash dir: %w", err)
+
+			if opt.SystemTrash {
+				if err := MoveToSystemTrash(a.Source); err != nil {
+					return stats, fmt.Errorf("system trash %s: %w", a.Source, err)
+				}
+				log = append(log, LogEntry{Type: a.Type, Source: a.Source})
+			} else {
+				trashDir := filepath.Join(rootPath, ".tidydir_trash", time.Now().Format("2006-01-02"))
+				if err := os.MkdirAll(trashDir, 0755); err != nil {
+					return stats, fmt.Errorf("creating trash dir: %w", err)
+				}
+				backupPath := filepath.Join(trashDir, filepath.Base(a.Source))
+				if err := os.Rename(a.Source, backupPath); err != nil {
+					return stats, fmt.Errorf("trashing %s: %w", a.Source, err)
+				}
+				log = append(log, LogEntry{Type: a.Type, Source: a.Source, BackupAt: backupPath})
 			}
-			backupPath := filepath.Join(trashDir, filepath.Base(a.Source))
-			if err := os.Rename(a.Source, backupPath); err != nil {
-				return stats, fmt.Errorf("trashing %s: %w", a.Source, err)
-			}
-			log = append(log, LogEntry{Type: a.Type, Source: a.Source, BackupAt: backupPath})
 			stats.Deleted++
 
 		case action.ActionRename:

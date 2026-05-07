@@ -35,7 +35,7 @@ type Classifier interface {
 
 // RunAll runs every classifier on every entry. First match wins.
 func RunAll(classifiers []Classifier, entries []scanner.Entry) []Classification {
-	var results []Classification
+	results := make([]Classification, 0, len(entries))
 
 	for _, entry := range entries {
 		var matched bool

@@ -47,9 +47,7 @@ func Analyze(entries []scanner.Entry, classifications []classifier.Classificatio
 
 	var all []Insight
 	all = append(all, findLargeFiles(entries, opts.LargeFileMB)...)
-	all = append(all, findOldProjects(classifications, opts.OldProjectDays)...)
-	all = append(all, findDirtyGitRepos(classifications)...)
-	all = append(all, findOrphanedDeps(classifications)...)
+	all = append(all, analyzeProjects(classifications, opts.OldProjectDays)...)
 	all = append(all, findNamingIssues(entries)...)
 	return all
 }
@@ -72,20 +70,23 @@ func findLargeFiles(entries []scanner.Entry, thresholdMB int) []Insight {
 	return out
 }
 
-// --- Old projects ---
-
-func findOldProjects(classifications []classifier.Classification, days int) []Insight {
+// analyzeProjects runs old-project, dirty-git, and orphaned-deps checks
+// in a single pass over classifications instead of three separate loops.
+func analyzeProjects(classifications []classifier.Classification, days int) []Insight {
 	cutoff := time.Now().AddDate(0, 0, -days)
 	var out []Insight
+
 	for _, c := range classifications {
 		if c.Category != classifier.CatProject {
 			continue
 		}
+
+		// Old project check
 		if c.Entry.ModTime.Before(cutoff) {
 			months := int(time.Since(c.Entry.ModTime).Hours() / 24 / 30)
 			msg := fmt.Sprintf("last modified %d months ago", months)
 			if months <= 1 {
-				msg = "last modified over " + fmt.Sprintf("%d", days) + " days ago"
+				msg = fmt.Sprintf("last modified over %d days ago", days)
 			}
 			out = append(out, Insight{
 				Type:    InsightOldProject,
@@ -94,22 +95,32 @@ func findOldProjects(classifications []classifier.Classification, days int) []In
 				Message: msg,
 			})
 		}
-	}
-	return out
-}
 
-// --- Dirty git repos ---
-
-func findDirtyGitRepos(classifications []classifier.Classification) []Insight {
-	var out []Insight
-	for _, c := range classifications {
-		if c.Category != classifier.CatProject {
-			continue
-		}
+		// Dirty git check
 		if ins := checkGitStatus(c.Entry); ins != nil {
 			out = append(out, *ins)
 		}
+
+		// Heavy dependency dirs check
+		for _, name := range heavyDirNames {
+			p := filepath.Join(c.Entry.Path, name)
+			info, err := os.Stat(p)
+			if err != nil || !info.IsDir() {
+				continue
+			}
+			size := dirSize(p)
+			if size < minHeavyDirBytes {
+				continue
+			}
+			out = append(out, Insight{
+				Type:    InsightOrphanedDeps,
+				Path:    p,
+				Name:    c.Entry.Name + "/" + name,
+				Message: FormatSize(size),
+			})
+		}
 	}
+
 	return out
 }
 
@@ -130,48 +141,19 @@ func checkGitStatus(entry scanner.Entry) *Insight {
 	}
 }
 
-// --- Orphaned / heavy dependency dirs ---
-
 var heavyDirNames = []string{
 	"node_modules", "vendor", "build", "dist", "target",
 	".cache", "__pycache__", ".next", ".nuxt",
 }
 
-func findOrphanedDeps(classifications []classifier.Classification) []Insight {
-	var out []Insight
-	for _, c := range classifications {
-		if c.Category != classifier.CatProject {
-			continue
-		}
-		for _, name := range heavyDirNames {
-			p := filepath.Join(c.Entry.Path, name)
-			info, err := os.Stat(p)
-			if err != nil || !info.IsDir() {
-				continue
-			}
-			size := dirSize(p)
-			if size < minHeavyDirBytes {
-				continue
-			}
-			out = append(out, Insight{
-				Type:    InsightOrphanedDeps,
-				Path:    p,
-				Name:    c.Entry.Name + "/" + name,
-				Message: FormatSize(size),
-			})
-		}
-	}
-	return out
-}
-
 func dirSize(path string) int64 {
 	var size int64
-	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-		if err != nil {
+	filepath.WalkDir(path, func(_ string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
 			return nil
 		}
-		if !info.IsDir() {
-			size += info.Size()
+		if fi, err := d.Info(); err == nil {
+			size += fi.Size()
 		}
 		return nil
 	})
@@ -243,38 +225,44 @@ func isClean(s string) bool {
 
 func toKebab(s string) string {
 	var buf strings.Builder
+	buf.Grow(len(s) + 4)
 	runes := []rune(s)
+	lastWasHyphen := true // prevent leading hyphen
 
 	for i, r := range runes {
 		switch {
 		case r == ' ' || r == '_' || r == '(' || r == ')':
-			if buf.Len() > 0 {
-				last := buf.String()
-				if last[len(last)-1] != '-' {
-					buf.WriteRune('-')
-				}
+			if !lastWasHyphen && buf.Len() > 0 {
+				buf.WriteByte('-')
+				lastWasHyphen = true
 			}
 		case unicode.IsUpper(r):
-			if i > 0 {
+			if i > 0 && !lastWasHyphen {
 				prev := runes[i-1]
 				if unicode.IsLower(prev) || unicode.IsDigit(prev) {
-					buf.WriteRune('-')
+					buf.WriteByte('-')
 				} else if unicode.IsUpper(prev) && i+1 < len(runes) && unicode.IsLower(runes[i+1]) {
-					buf.WriteRune('-')
+					buf.WriteByte('-')
 				}
 			}
 			buf.WriteRune(unicode.ToLower(r))
+			lastWasHyphen = false
 		case unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' || r == '.':
-			buf.WriteRune(r)
+			if r == '-' {
+				if !lastWasHyphen {
+					buf.WriteByte('-')
+					lastWasHyphen = true
+				}
+			} else {
+				buf.WriteRune(r)
+				lastWasHyphen = false
+			}
 		default:
 			// skip other special chars
 		}
 	}
 
 	result := buf.String()
-	for strings.Contains(result, "--") {
-		result = strings.ReplaceAll(result, "--", "-")
-	}
 	result = strings.Trim(result, "-")
 	return result
 }

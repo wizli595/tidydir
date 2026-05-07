@@ -95,6 +95,7 @@ func Run(actions []action.Action, rootPath string, opts ...RunOptions) (Stats, e
 }
 
 // CalcSize returns the total size in bytes for a file or directory.
+// Uses WalkDir instead of Walk to avoid redundant os.Stat calls.
 func CalcSize(path string) int64 {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -104,8 +105,11 @@ func CalcSize(path string) int64 {
 		return info.Size()
 	}
 	var size int64
-	filepath.Walk(path, func(_ string, fi os.FileInfo, err error) error {
-		if err == nil && !fi.IsDir() {
+	filepath.WalkDir(path, func(_ string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if fi, err := d.Info(); err == nil {
 			size += fi.Size()
 		}
 		return nil

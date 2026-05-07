@@ -13,6 +13,8 @@ import (
 	"github.com/wizli595/tidydir/internal/scanner"
 )
 
+const minHeavyDirBytes = 10 * 1024 * 1024 // 10 MB
+
 type InsightType string
 
 const (
@@ -119,12 +121,12 @@ func checkGitStatus(entry scanner.Entry) *Insight {
 	if err != nil || strings.TrimSpace(string(raw)) == "" {
 		return nil
 	}
-	n := len(strings.Split(strings.TrimSpace(string(raw)), "\n"))
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
 	return &Insight{
 		Type:    InsightDirtyGit,
 		Path:    entry.Path,
 		Name:    entry.Name,
-		Message: fmt.Sprintf("%d uncommitted changes", n),
+		Message: fmt.Sprintf("%d file(s) with uncommitted changes", len(lines)),
 	}
 }
 
@@ -148,7 +150,7 @@ func findOrphanedDeps(classifications []classifier.Classification) []Insight {
 				continue
 			}
 			size := dirSize(p)
-			if size < 10*1024*1024 { // skip if under 10 MB
+			if size < minHeavyDirBytes {
 				continue
 			}
 			out = append(out, Insight{

@@ -2,6 +2,7 @@ package planner
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/wizli595/tidydir/internal/action"
 	"github.com/wizli595/tidydir/internal/classifier"
@@ -38,6 +39,9 @@ func Plan(classifications []classifier.Classification, rootPath string, folders 
 
 		case classifier.CatProject:
 			folder := folders["project"]
+			if strings.Contains(c.SubType, "..") || strings.Contains(c.Entry.Name, "..") {
+				continue
+			}
 			dest := filepath.Join(rootPath, folder, c.SubType, c.Entry.Name)
 			if dest != c.Entry.Path {
 				actions = append(actions, action.Action{

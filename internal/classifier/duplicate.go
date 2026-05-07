@@ -26,15 +26,21 @@ func (d *DuplicateClassifier) Classify(entry scanner.Entry, allEntries []scanner
 	}
 
 	// Check for zip files with a matching extracted folder
-	if !entry.IsDir && (strings.HasSuffix(name, ".zip") || strings.HasSuffix(name, ".rar") || strings.HasSuffix(name, ".7z")) {
-		baseName := strings.TrimSuffix(strings.TrimSuffix(strings.TrimSuffix(name, ".zip"), ".rar"), ".7z")
-		for _, other := range allEntries {
-			if other.IsDir && other.Name == baseName {
-				return &Classification{
-					Entry:    entry,
-					Category: CatDuplicate,
-					Reason:   "archive has matching folder: " + baseName + "/",
+	archiveExts := []string{".zip", ".rar", ".7z"}
+	if !entry.IsDir {
+		for _, ext := range archiveExts {
+			if strings.HasSuffix(name, ext) {
+				baseName := strings.TrimSuffix(name, ext)
+				for _, other := range allEntries {
+					if other.IsDir && other.Name == baseName {
+						return &Classification{
+							Entry:    entry,
+							Category: CatDuplicate,
+							Reason:   "archive has matching folder: " + baseName + "/",
+						}
+					}
 				}
+				break
 			}
 		}
 	}

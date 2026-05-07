@@ -8,12 +8,14 @@ import (
 )
 
 type Config struct {
-	Folders        map[string]string `yaml:"folders"`
-	ProjectMarkers []ProjectMarker   `yaml:"project_markers"`
-	Ignore         []string          `yaml:"ignore"`
-	CustomRules    []CustomRule      `yaml:"custom_rules"`
-	LargeFileMB    int               `yaml:"large_file_mb"`
-	OldProjectDays int               `yaml:"old_project_days"`
+	Folders           map[string]string  `yaml:"folders"`
+	ProjectMarkers    []ProjectMarker    `yaml:"project_markers"`
+	Ignore            []string           `yaml:"ignore"`
+	CustomRules       []CustomRule       `yaml:"custom_rules"`
+	CustomClassifiers []ClassifierRule   `yaml:"custom_classifiers"`
+	Profiles          map[string]Profile `yaml:"profiles"`
+	LargeFileMB       int                `yaml:"large_file_mb"`
+	OldProjectDays    int                `yaml:"old_project_days"`
 }
 
 type ProjectMarker struct {
@@ -26,7 +28,30 @@ type CustomRule struct {
 	Dest    string `yaml:"dest"`
 }
 
+// ClassifierRule defines a user-configured classifier (plugin system).
+type ClassifierRule struct {
+	Name       string   `yaml:"name"`
+	Extensions []string `yaml:"extensions"`
+	Patterns   []string `yaml:"patterns"`
+	Category   string   `yaml:"category"`
+	SubType    string   `yaml:"subtype"`
+}
+
+// Profile holds alternate settings for different use cases.
+type Profile struct {
+	Folders           map[string]string `yaml:"folders"`
+	Ignore            []string          `yaml:"ignore"`
+	CustomRules       []CustomRule      `yaml:"custom_rules"`
+	CustomClassifiers []ClassifierRule  `yaml:"custom_classifiers"`
+	LargeFileMB       int               `yaml:"large_file_mb"`
+	OldProjectDays    int               `yaml:"old_project_days"`
+}
+
 func Load(targetDir string) *Config {
+	return LoadWithProfile(targetDir, "")
+}
+
+func LoadWithProfile(targetDir, profile string) *Config {
 	cfg := &Config{
 		Folders: map[string]string{
 			"project":  "projects",
@@ -47,7 +72,39 @@ func Load(targetDir string) *Config {
 
 	data, _ := os.ReadFile(path)
 	yaml.Unmarshal(data, cfg)
+
+	if profile != "" {
+		applyProfile(cfg, profile)
+	}
+
 	return cfg
+}
+
+func applyProfile(cfg *Config, name string) {
+	p, ok := cfg.Profiles[name]
+	if !ok {
+		return
+	}
+	if p.Folders != nil {
+		for k, v := range p.Folders {
+			cfg.Folders[k] = v
+		}
+	}
+	if p.Ignore != nil {
+		cfg.Ignore = p.Ignore
+	}
+	if p.CustomRules != nil {
+		cfg.CustomRules = p.CustomRules
+	}
+	if p.CustomClassifiers != nil {
+		cfg.CustomClassifiers = p.CustomClassifiers
+	}
+	if p.LargeFileMB > 0 {
+		cfg.LargeFileMB = p.LargeFileMB
+	}
+	if p.OldProjectDays > 0 {
+		cfg.OldProjectDays = p.OldProjectDays
+	}
 }
 
 func findFile(targetDir string) string {

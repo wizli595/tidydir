@@ -59,11 +59,18 @@ func RunAll(classifiers []Classifier, entries []scanner.Entry) []Classification 
 }
 
 // DefaultClassifiers returns the standard set of classifiers in priority order.
-func DefaultClassifiers(extraMarkers []config.ProjectMarker) []Classifier {
-	return []Classifier{
+// Custom classifiers from config run before the built-in filetype classifier.
+func DefaultClassifiers(extraMarkers []config.ProjectMarker, customRules ...[]config.ClassifierRule) []Classifier {
+	classifiers := []Classifier{
 		&JunkClassifier{},
 		&DuplicateClassifier{},
 		&ProjectClassifier{ExtraMarkers: extraMarkers},
-		&FileTypeClassifier{},
 	}
+
+	if len(customRules) > 0 && len(customRules[0]) > 0 {
+		classifiers = append(classifiers, &CustomClassifier{Rules: customRules[0]})
+	}
+
+	classifiers = append(classifiers, &FileTypeClassifier{})
+	return classifiers
 }

@@ -77,7 +77,7 @@ func reportStatus(path string, cfg *config.Config) {
 		return
 	}
 
-	classifiers := classifier.DefaultClassifiers(cfg.ProjectMarkers)
+	classifiers := classifier.DefaultClassifiers(cfg.ProjectMarkers, cfg.CustomClassifiers)
 	classifications := classifier.RunAll(classifiers, entries)
 	actions := planner.Plan(classifications, path, cfg.Folders, cfg.CustomRules)
 	renames := planner.PlanRenames(entries, path, actions)

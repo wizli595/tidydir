@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // MoveToSystemTrash moves a file or directory to the OS trash.
@@ -29,25 +30,24 @@ func MoveToSystemTrash(path string) error {
 
 func trashWindows(path string) error {
 	// Use PowerShell with VisualBasic FileSystem to send to Recycle Bin
+	// Escape for single-quoted PowerShell string (double the single quotes)
 	escaped := strings.ReplaceAll(path, "'", "''")
-	script := fmt.Sprintf(
-		`Add-Type -AssemblyName Microsoft.VisualBasic; `+
-			`[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('%s', 'OnlyErrorDialogs', 'SendToRecycleBin')`,
-		escaped,
-	)
 
-	// Check if it's a directory
 	info, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
+
+	method := "DeleteFile"
 	if info.IsDir() {
-		script = fmt.Sprintf(
-			`Add-Type -AssemblyName Microsoft.VisualBasic; `+
-				`[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory('%s', 'OnlyErrorDialogs', 'SendToRecycleBin')`,
-			escaped,
-		)
+		method = "DeleteDirectory"
 	}
+
+	script := fmt.Sprintf(
+		`Add-Type -AssemblyName Microsoft.VisualBasic; `+
+			`[Microsoft.VisualBasic.FileIO.FileSystem]::%s('%s', 'OnlyErrorDialogs', 'SendToRecycleBin')`,
+		method, escaped,
+	)
 
 	cmd := exec.Command("powershell", "-NoProfile", "-Command", script)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -57,7 +57,9 @@ func trashWindows(path string) error {
 }
 
 func trashDarwin(path string) error {
-	escaped := strings.ReplaceAll(path, `"`, `\"`)
+	// Escape backslashes and double quotes for AppleScript string
+	escaped := strings.ReplaceAll(path, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
 	script := fmt.Sprintf(
 		`tell application "Finder" to delete POSIX file "%s"`, escaped,
 	)
@@ -102,11 +104,13 @@ func trashLinux(path string) error {
 		return fmt.Errorf("moving to trash: %w", err)
 	}
 
-	// Write .trashinfo file
+	// Write .trashinfo file (XDG spec format)
 	infoContent := fmt.Sprintf("[Trash Info]\nPath=%s\nDeletionDate=%s\n",
-		path, "now")
+		path, time.Now().Format("2006-01-02T15:04:05"))
 	infoPath := filepath.Join(trashInfo, filepath.Base(dest)+".trashinfo")
-	os.WriteFile(infoPath, []byte(infoContent), 0644)
+	if err := os.WriteFile(infoPath, []byte(infoContent), 0644); err != nil {
+		return fmt.Errorf("writing trash info: %w", err)
+	}
 
 	return nil
 }

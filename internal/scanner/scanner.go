@@ -53,7 +53,8 @@ func scan(dir string, opts Options, level int, entries *[]Entry) error {
 		*entries = append(*entries, entry)
 
 		if de.IsDir() && opts.Depth > 0 && level < opts.Depth {
-			scan(entry.Path, opts, level+1, entries)
+			// Continue scanning other entries even if a subdirectory fails
+			_ = scan(entry.Path, opts, level+1, entries)
 		}
 	}
 

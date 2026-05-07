@@ -9,7 +9,9 @@ import (
 // DuplicateClassifier detects redundant files:
 // - zip files that have a matching extracted folder
 // - files with " (1)", " - Copy" in the name
-type DuplicateClassifier struct{}
+type DuplicateClassifier struct {
+	dirIndex map[string]bool // cached directory name lookup, built on first use
+}
 
 func (d *DuplicateClassifier) Name() string { return "duplicate" }
 
@@ -26,18 +28,37 @@ func (d *DuplicateClassifier) Classify(entry scanner.Entry, allEntries []scanner
 	}
 
 	// Check for zip files with a matching extracted folder
-	if !entry.IsDir && (strings.HasSuffix(name, ".zip") || strings.HasSuffix(name, ".rar") || strings.HasSuffix(name, ".7z")) {
-		baseName := strings.TrimSuffix(strings.TrimSuffix(strings.TrimSuffix(name, ".zip"), ".rar"), ".7z")
-		for _, other := range allEntries {
-			if other.IsDir && other.Name == baseName {
-				return &Classification{
-					Entry:    entry,
-					Category: CatDuplicate,
-					Reason:   "archive has matching folder: " + baseName + "/",
+	if !entry.IsDir {
+		for _, ext := range archiveExts {
+			if strings.HasSuffix(name, ext) {
+				d.ensureDirIndex(allEntries)
+				baseName := strings.TrimSuffix(name, ext)
+				if d.dirIndex[baseName] {
+					return &Classification{
+						Entry:    entry,
+						Category: CatDuplicate,
+						Reason:   "archive has matching folder: " + baseName + "/",
+					}
 				}
+				break
 			}
 		}
 	}
 
 	return nil
+}
+
+var archiveExts = []string{".zip", ".rar", ".7z"}
+
+// ensureDirIndex builds the directory name lookup map once per run.
+func (d *DuplicateClassifier) ensureDirIndex(entries []scanner.Entry) {
+	if d.dirIndex != nil {
+		return
+	}
+	d.dirIndex = make(map[string]bool, len(entries)/2)
+	for _, e := range entries {
+		if e.IsDir {
+			d.dirIndex[e.Name] = true
+		}
+	}
 }

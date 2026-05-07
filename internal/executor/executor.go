@@ -57,13 +57,7 @@ func Run(actions []action.Action, rootPath string, opts ...RunOptions) (Stats, e
 
 		case action.ActionDelete:
 			// Calculate freed space before trashing
-			if info, err := os.Stat(a.Source); err == nil {
-				if info.IsDir() {
-					stats.Freed += calcDirSize(a.Source)
-				} else {
-					stats.Freed += info.Size()
-				}
-			}
+			stats.Freed += CalcSize(a.Source)
 
 			if opt.SystemTrash {
 				if err := MoveToSystemTrash(a.Source); err != nil {
@@ -93,15 +87,30 @@ func Run(actions []action.Action, rootPath string, opts ...RunOptions) (Stats, e
 	}
 
 	logPath := filepath.Join(rootPath, logFile)
-	data, _ := json.MarshalIndent(log, "", "  ")
+	data, err := json.MarshalIndent(log, "", "  ")
+	if err != nil {
+		return stats, fmt.Errorf("serializing undo log: %w", err)
+	}
 	return stats, os.WriteFile(logPath, data, 0644)
 }
 
-func calcDirSize(path string) int64 {
+// CalcSize returns the total size in bytes for a file or directory.
+// Uses WalkDir instead of Walk to avoid redundant os.Stat calls.
+func CalcSize(path string) int64 {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	if !info.IsDir() {
+		return info.Size()
+	}
 	var size int64
-	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-		if err == nil && !info.IsDir() {
-			size += info.Size()
+	filepath.WalkDir(path, func(_ string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if fi, err := d.Info(); err == nil {
+			size += fi.Size()
 		}
 		return nil
 	})
@@ -126,17 +135,19 @@ func Undo(rootPath string) error {
 		entry := log[i]
 		switch entry.Type {
 		case action.ActionMove, action.ActionRename:
-			// Move back: dest → source
 			destDir := filepath.Dir(entry.Source)
-			os.MkdirAll(destDir, 0755)
+			if err := os.MkdirAll(destDir, 0755); err != nil {
+				return fmt.Errorf("creating dir for undo: %w", err)
+			}
 			if err := os.Rename(entry.Dest, entry.Source); err != nil {
 				return fmt.Errorf("undoing move %s: %w", entry.Dest, err)
 			}
 		case action.ActionDelete:
-			// Restore from trash
 			if entry.BackupAt != "" {
 				destDir := filepath.Dir(entry.Source)
-				os.MkdirAll(destDir, 0755)
+				if err := os.MkdirAll(destDir, 0755); err != nil {
+					return fmt.Errorf("creating dir for restore: %w", err)
+				}
 				if err := os.Rename(entry.BackupAt, entry.Source); err != nil {
 					return fmt.Errorf("restoring %s: %w", entry.Source, err)
 				}

@@ -35,7 +35,7 @@ type Classifier interface {
 
 // RunAll runs every classifier on every entry. First match wins.
 func RunAll(classifiers []Classifier, entries []scanner.Entry) []Classification {
-	var results []Classification
+	results := make([]Classification, 0, len(entries))
 
 	for _, entry := range entries {
 		var matched bool
@@ -60,15 +60,15 @@ func RunAll(classifiers []Classifier, entries []scanner.Entry) []Classification 
 
 // DefaultClassifiers returns the standard set of classifiers in priority order.
 // Custom classifiers from config run before the built-in filetype classifier.
-func DefaultClassifiers(extraMarkers []config.ProjectMarker, customRules ...[]config.ClassifierRule) []Classifier {
+func DefaultClassifiers(extraMarkers []config.ProjectMarker, customRules []config.ClassifierRule) []Classifier {
 	classifiers := []Classifier{
 		&JunkClassifier{},
 		&DuplicateClassifier{},
 		&ProjectClassifier{ExtraMarkers: extraMarkers},
 	}
 
-	if len(customRules) > 0 && len(customRules[0]) > 0 {
-		classifiers = append(classifiers, &CustomClassifier{Rules: customRules[0]})
+	if len(customRules) > 0 {
+		classifiers = append(classifiers, &CustomClassifier{Rules: customRules})
 	}
 
 	classifiers = append(classifiers, &FileTypeClassifier{})

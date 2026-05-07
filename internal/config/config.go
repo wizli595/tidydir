@@ -70,7 +70,10 @@ func LoadWithProfile(targetDir, profile string) *Config {
 		return cfg
 	}
 
-	data, _ := os.ReadFile(path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return cfg
+	}
 	yaml.Unmarshal(data, cfg)
 
 	if profile != "" {

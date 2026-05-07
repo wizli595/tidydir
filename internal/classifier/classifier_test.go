@@ -245,7 +245,7 @@ func TestRunAll_FirstMatchWins(t *testing.T) {
 		{Name: ".DS_Store", Path: "/tmp/.DS_Store"},
 	}
 
-	classifiers := DefaultClassifiers(nil)
+	classifiers := DefaultClassifiers(nil, nil)
 	results := RunAll(classifiers, entries)
 
 	if len(results) != 1 {
@@ -262,7 +262,7 @@ func TestRunAll_UnmatchedBecomesUnknown(t *testing.T) {
 		{Name: "random.xyz", Path: "/tmp/random.xyz", Ext: ".xyz"},
 	}
 
-	results := RunAll(DefaultClassifiers(nil), entries)
+	results := RunAll(DefaultClassifiers(nil, nil), entries)
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
@@ -272,7 +272,7 @@ func TestRunAll_UnmatchedBecomesUnknown(t *testing.T) {
 }
 
 func TestDefaultClassifiers_Order(t *testing.T) {
-	classifiers := DefaultClassifiers(nil)
+	classifiers := DefaultClassifiers(nil, nil)
 	if len(classifiers) != 4 {
 		t.Fatalf("expected 4 classifiers, got %d", len(classifiers))
 	}

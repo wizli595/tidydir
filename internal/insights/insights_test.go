@@ -158,7 +158,13 @@ func TestFindOldProjects(t *testing.T) {
 		},
 	}
 
-	results := findOldProjects(classifications, 180)
+	all := analyzeProjects(classifications, 180)
+	var results []Insight
+	for _, r := range all {
+		if r.Type == InsightOldProject {
+			results = append(results, r)
+		}
+	}
 	if len(results) != 1 {
 		t.Fatalf("expected 1 old project, got %d", len(results))
 	}
@@ -202,7 +208,13 @@ func TestFindOrphanedDeps(t *testing.T) {
 		},
 	}
 
-	results := findOrphanedDeps(classifications)
+	all := analyzeProjects(classifications, 999)
+	var results []Insight
+	for _, r := range all {
+		if r.Type == InsightOrphanedDeps {
+			results = append(results, r)
+		}
+	}
 	if len(results) != 1 {
 		t.Fatalf("expected 1 orphaned dep, got %d", len(results))
 	}
@@ -224,7 +236,13 @@ func TestFindOrphanedDeps_SkipsSmall(t *testing.T) {
 		},
 	}
 
-	results := findOrphanedDeps(classifications)
+	all := analyzeProjects(classifications, 999)
+	var results []Insight
+	for _, r := range all {
+		if r.Type == InsightOrphanedDeps {
+			results = append(results, r)
+		}
+	}
 	if len(results) != 0 {
 		t.Errorf("expected 0 results for small dir, got %d", len(results))
 	}

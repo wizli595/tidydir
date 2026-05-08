@@ -4,6 +4,7 @@
 
 # tidydir
 
+[![CI](https://github.com/wizli595/tidydir/actions/workflows/ci.yml/badge.svg)](https://github.com/wizli595/tidydir/actions/workflows/ci.yml)
 [![Go](https://img.shields.io/badge/Go-1.24-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20|%20macOS%20|%20Linux-blue)]()
@@ -34,6 +35,7 @@ A CLI tool that scans messy directories, classifies files and projects by type, 
   - [Custom Classifiers](#custom-classifiers)
 - [Architecture](#architecture)
 - [Dependencies](#dependencies)
+- [Contributing](#contributing)
 - [License](#license)
 
 ---
@@ -374,6 +376,10 @@ tidydir/
 - [termenv](https://github.com/muesli/termenv) — Dark/light terminal detection
 - [fsnotify](https://github.com/fsnotify/fsnotify) — File system watching
 - [yaml.v3](https://gopkg.in/yaml.v3) — Configuration parsing
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started.
 
 ## License
 
